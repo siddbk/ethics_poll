@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}AI Ethics Poll - Display{% endblock %}
+
+{% block content %}
+<div class="container-fluid display-view">
+    <div id="waiting" class="text-center p-5">
+        <h2>Waiting for scenario selection...</h2>
+        <div class="spinner-border text-primary mt-3" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+    
+    <div id="scenario-display" style="display: none;">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 id="scenario-title"></h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="lead" id="scenario-description"></p>
+                        
+                        <h5>Options:</h5>
+                        <ul class="list-group mb-3" id="scenario-options">
+                            <!-- Options will be inserted here -->
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h4>Scan to Vote</h4>
+                    </div>
+                    <div class="card-body text-center">
+                        <img id="qr-code" class="img-fluid qr-code-large" alt="QR Code">
+                        <p class="mt-2" id="vote-url"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h4>Live Results</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="results-container">
+                            <div class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="sr-only">Loading...</span>
+                                </div>
+                                <p>Waiting for votes...</p>
+                            </div>
+                        </div>
+                        
+                        <div id="framework-results" class="mt-4" style="display: none;">
+                            <h5>AI Ethics Framework Positions:</h5>
+                            <div id="framework-content">
+                                <!-- Framework positions will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span id="vote-count" class="badge badge-primary">0</span> votes received
+                            </div>
+                            <div id="timer-container" style="display: none;">
+                                Time remaining: <span id="timer" class="badge badge-secondary">60</span> seconds
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    // Global variables
+    let currentScenario = null;
+    let pollingInterval = null;
+    let timerInterval = null;
+    let timerSeconds = 60;
+    
+    // Start polling for current scenario and results
+    function startPolling() {
+        // Poll for current scenario every 2 seconds
+        pollingInterval = setInterval(checkCurrentScenario, 2000);
+        checkCurrentScenario(); // Initial check
+    }
+    
+    // Stop all polling
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+    }
+    
+    // Check if current scenario has changed
+    function checkCurrentScenario() {
+        fetch('{{ url_for("api_current_scenario") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'active') {
+                    // Show scenario display
+                    document.getElementById('waiting').style.display = 'none';
+                    document.getElementById('scenario-display').style.display = 'block';
+                    
+                    // Check if scenario has changed
+                    if (!currentScenario || currentScenario.id !== data.scenario.id) {
+                        currentScenario = data.scenario;
+                        updateScenarioDisplay(currentScenario);
+                        resetTimer();
+                    }
+                    
+                    // Fetch results
+                    fetchResults(currentScenario.id);
+                } else {
+                    // Show waiting screen
+                    document.getElementById('waiting').style.display = 'block';
+                    document.getElementById('scenario-display').style.display = 'none';
+                    currentScenario = null;
+                }
+            })
+            .catch(error => console.error('Error checking current scenario:', error));
+    }
+    
+    // Update the display with scenario information
+    function updateScenarioDisplay(scenario) {
+        // Update title and description
+        document.getElementById('scenario-title').textContent = scenario.title;
+        document.getElementById('scenario-description').textContent = scenario.description;
+        
+        // Update options
+        const optionsContainer = document.getElementById('scenario-options');
+        optionsContainer.innerHTML = '';
+        
+        scenario.options.forEach(option => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.innerHTML = `<strong>${option.id}:</strong> ${option.text}`;
+            optionsContainer.appendChild(li);
+        });
+        
+        // Update QR code
+        const baseUrl = window.location.origin;
+        const voteUrl = `${baseUrl}/vote/${scenario.id}`;
+        document.getElementById('qr-code').src = `${baseUrl}/qrcode/${scenario.id}`;
+        document.getElementById('vote-url').textContent = voteUrl;
+        
+        // Reset framework display
+        document.getElementById('framework-results').style.display = 'none';
+    }
+    
+    // Fetch results for current scenario
+    function fetchResults(scenarioId) {
+        fetch(`/results/${scenarioId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateResults(data);
+                    document.getElementById('vote-count').textContent = data.total_votes;
+                }
+            })
+            .catch(error => console.error('Error fetching results:', error));
+    }
+    
+    // Update results display
+    function updateResults(data) {
+        const resultsContainer = document.getElementById('results-container');
+        
+        if (data.total_votes === 0) {
+            resultsContainer.innerHTML = `
+                <div class="alert alert-info text-center">
+                    <h5>No votes received yet</h5>
+                    <p>Scan the QR code to participate!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Create labels and data arrays for chart
+        const labels = [];
+        const values = [];
+        const colors = ['#4285F4', '#EA4335', '#FBBC05', '#34A853', '#673AB7', '#3F51B5'];
+        
+        let i = 0;
+        for (const [option, count] of Object.entries(data.results)) {
+            labels.push(`Option ${option}`);
+            values.push(count);
+            i++;
+        }
+        
+        // Create results HTML
+        resultsContainer.innerHTML = `
+            <div class="chart-container" style="position: relative; height:40vh;">
+                <canvas id="results-chart"></canvas>
+            </div>
+            <div class="mt-4">
+                <h5>Results Breakdown:</h5>
+                <div class="row" id="results-breakdown"></div>
+            </div>
+        `;
+        
+        // Create breakdown
+        const breakdownContainer = document.getElementById('results-breakdown');
+        i = 0;
+        for (const [option, count] of Object.entries(data.results)) {
+            const percentage = (count / data.total_votes * 100).toFixed(1);
+            const colDiv = document.createElement('div');
+            colDiv.className = 'col-md-6 mb-2';
+            colDiv.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Option ${option}</h5>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" 
+                                style="width: ${percentage}%; background-color: ${colors[i % colors.length]}" 
+                                aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">
+                                ${percentage}%
+                            </div>
+                        </div>
+                        <p class="text-center mt-2">${count} votes</p>
+                    </div>
+                </div>
+            `;
+            breakdownContainer.appendChild(colDiv);
+            i++;
+        }
+        
+        // Create chart
+        const ctx = document.getElementById('results-chart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Votes',
+                    data: values,
+                    backgroundColor: colors.slice(0, values.length),
+                    borderColor: colors.slice(0, values.length),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Update framework positions
+        if (data.frameworks) {
+            const frameworkContainer = document.getElementById('framework-content');
+            frameworkContainer.innerHTML = '';
+            
+            Object.entries(data.frameworks).forEach(([framework, position]) => {
+                const frameworkDiv = document.createElement('div');
+                frameworkDiv.className = 'card mb-2';
+                frameworkDiv.innerHTML = `
+                    <div class="card-body">
+                        <h5 class="card-title">${framework}</h5>
+                        <p><strong>Position:</strong> Option ${position.choice}</p>
+                        <p class="mb-0">${position.explanation}</p>
+                    </div>
+                `;
+                frameworkContainer.appendChild(frameworkDiv);
+            });
+            
+            document.getElementById('framework-results').style.display = 'block';
+        }
+    }
+    
+    // Timer functions
+    function startTimer(seconds) {
+        const timerElement = document.getElementById('timer');
+        const timerContainer = document.getElementById('timer-container');
+        
+        timerSeconds = seconds;
+        timerElement.textContent = timerSeconds;
+        timerContainer.style.display = 'block';
+        
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        
+        timerInterval = setInterval(() => {
+            timerSeconds--;
+            timerElement.textContent = timerSeconds;
+            
+            if (timerSeconds <= 10) {
+                timerElement.className = 'badge badge-danger';
+            } else {
+                timerElement.className = 'badge badge-secondary';
+            }
+            
+            if (timerSeconds <= 0) {
+                clearInterval(timerInterval);
+                timerContainer.style.display = 'none';
+            }
+        }, 1000);
+    }
+    
+    function resetTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        document.getElementById('timer-container').style.display = 'none';
+        // Optional: auto-start timer
+        // startTimer(60);
+    }
+    
+    // Start polling when page loads
+    document.addEventListener('DOMContentLoaded', startPolling);
+    
+    // Stop polling when page is hidden
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            startPolling();
+        } else {
+            stopPolling();
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

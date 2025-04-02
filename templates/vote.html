@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Vote: {{ scenario.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card mt-3 mb-5">
+        <div class="card-header bg-primary text-white">
+            <h4>{{ scenario.title }}</h4>
+        </div>
+        <div class="card-body">
+            <p class="lead">{{ scenario.description }}</p>
+            
+            <form id="vote-form">
+                <input type="hidden" id="scenario-id" value="{{ scenario.id }}">
+                <input type="hidden" id="voter-id" value="{{ voter_id }}">
+                
+                <div class="form-group">
+                    <label><strong>Select your ethical position:</strong></label>
+                    
+                    {% for option in scenario.options %}
+                    <div class="custom-control custom-radio mb-2">
+                        <input type="radio" id="option{{ option.id }}" name="option" 
+                               class="custom-control-input" value="{{ option.id }}" required>
+                        <label class="custom-control-label" for="option{{ option.id }}">
+                            <strong>{{ option.id }}:</strong> {{ option.text }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-lg btn-primary">Submit Vote</button>
+                </div>
+            </form>
+            
+            <div id="thank-you" class="text-center mt-4" style="display: none;">
+                <div class="alert alert-success">
+                    <h4>Thank you for your vote!</h4>
+                    <p>Your ethical position has been recorded.</p>
+                    <p>Results will be displayed on the main screen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('vote-form');
+        const thankYou = document.getElementById('thank-you');
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const scenarioId = document.getElementById('scenario-id').value;
+            const voterId = document.getElementById('voter-id').value;
+            const selectedOption = document.querySelector('input[name="option"]:checked');
+            
+            if (!selectedOption) {
+                alert('Please select an option');
+                return;
+            }
+            
+            const choice = selectedOption.value;
+            
+            // Submit vote via fetch API
+            fetch('{{ url_for("submit_vote") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    scenario_id: scenarioId,
+                    voter_id: voterId,
+                    choice: choice
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Show thank you message
+                    form.style.display = 'none';
+                    thankYou.style.display = 'block';
+                } else {
+                    // Show error
+                    alert('Error submitting vote: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error submitting vote. Please try again.');
+            });
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

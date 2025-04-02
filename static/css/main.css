@@ -1,0 +1,148 @@
+/* 
+ * AI Ethics Poll Game - Custom Stylesheet
+ * Contains custom styling for the application
+ */
+
+/* General Styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Sidebar Styles */
+.sidebar {
+    background-color: #f8f9fa;
+}
+
+.sidebar .card {
+    border-radius: 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar .list-group-item.active {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* QR Code Styles */
+.qr-code {
+    max-width: 200px;
+    height: auto;
+    border: 1px solid #ddd;
+    padding: 5px;
+    background-color: white;
+}
+
+.qr-code-large {
+    max-width: 300px;
+    height: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    background-color: white;
+    margin: 0 auto;
+}
+
+/* Card Styles */
+.card {
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.card-header {
+    font-weight: 500;
+}
+
+/* Display View Styles */
+.display-view {
+    padding: 20px;
+}
+
+.display-view .card {
+    height: 100%;
+}
+
+.display-view .lead {
+    font-size: 1.3rem;
+}
+
+/* Results Visualization */
+.chart-container {
+    margin-bottom: 20px;
+}
+
+.progress {
+    height: 25px;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 12px;
+}
+
+.progress-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Voting Page Styles */
+#vote-form .custom-control {
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid #e9ecef;
+    border-radius: 5px;
+    transition: background-color 0.2s;
+}
+
+#vote-form .custom-control:hover {
+    background-color: #f8f9fa;
+}
+
+#vote-form .custom-control-input:checked ~ .custom-control-label {
+    font-weight: bold;
+}
+
+/* Animation Effects */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.card {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Timer Styles */
+#timer-container {
+    font-weight: bold;
+}
+
+#timer {
+    font-size: 1.2rem;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .display-view {
+        padding: 10px;
+    }
+    
+    .display-view .lead {
+        font-size: 1.1rem;
+    }
+    
+    .qr-code-large {
+        max-width: 200px;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+}
